@@ -30,13 +30,17 @@ let upcomingFeatureFlags: [SwiftSetting] = [
 let upcomingFeatureFlags: [SwiftSetting] = []
 #endif
 
-let swiftSettings: [SwiftSetting] = [
-    /// Versioned releases can't use this flag?! So can't commit this flag to git.
+let _swiftSettings: [SwiftSetting] = [
     /// `DiscordBM` passes the `complete` level.
     ///
     /// `minimal` / `targeted` / `complete`
-    //    .unsafeFlags(["-Xfrontend", "-strict-concurrency=complete"])
+    .unsafeFlags(["-Xfrontend", "-strict-concurrency=complete"])
 ] + upcomingFeatureFlags
+
+let enableSwiftSettings = false
+
+/// Versioned releases can't use these flags?! So can't commit this to git while enabled.
+let swiftSettings = enableSwiftSettings ? _swiftSettings : []
 
 let package = Package(
     name: "DiscordLogger",
@@ -55,11 +59,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.49.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.5.2"),
-        /// Pin `DiscordBM` since it's still in beta
-        .package(
-            url: "https://github.com/DiscordBM/DiscordBM.git",
-            revision: "58fb4aab8a603f8c3808efa542e3df6d4474777f"
-        ),
+        .package(url: "https://github.com/DiscordBM/DiscordBM.git", from: "1.0.0-beta.62"),
     ],
     targets: [
         .target(

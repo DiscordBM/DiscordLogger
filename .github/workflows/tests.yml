@@ -7,7 +7,7 @@ on:
   push: { branches: [ main ] }
 
 jobs:
-  main-tests:
+  tests:
     uses: vapor/ci/.github/workflows/run-unit-tests.yml@reusable-workflows
     with:
       with_coverage: true
