@@ -17,7 +17,8 @@
 </p>
 
 ## Discord Logger
-`DiscordLogger` is a [swift-log](https://github.com/apple/swift-log) implementation for sending your logs over to a Discord channel.
+`DiscordLogger` is a [swift-log](https://github.com/apple/swift-log) implementation for sending your logs over to a Discord channel.   
+It uses [DiscordBM](https://github.com/DiscordBM/DiscordBM) to communicate with Discord.
 
 ## Showcase
 You can see Vapor community's Penny bot as a showcase of using this library in production. Penny uses `DiscordLogger` to send a selected group of important logs to an internal channel, so maintainers can be easily notified of any problems that might occur to her.    
