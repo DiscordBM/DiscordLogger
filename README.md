@@ -60,7 +60,7 @@ await LoggingSystem.bootstrapWithDiscordLogger(
 ```
 `DiscordLogManager` comes with a ton of useful configuration options.   
 Here is an example of a decently-configured `DiscordLogManager`:   
-Read `DiscordLogManager.Configuration.init` documentation for full info.
+> Read `DiscordLogManager.Configuration.init` documentation for full info.
 
 ```swift
 DiscordGlobalConfiguration.logManager = await DiscordLogManager(
@@ -102,6 +102,10 @@ logger.critical("CRITICAL PROBLEM. ABOUT TO EXPLODE 💥")
 
 <img width="370" alt="DiscordLogger Showcase Output" src="https://user-images.githubusercontent.com/54685446/217464224-1cb6ed75-8683-4977-8bd3-03752d7d7597.png">
 
+> **Note**   
+> `DiscordLogger` is not meant to replace your on-disk logging, as it can be much less consistent due to nature of logging _over the network_ and also _sending messages to Discord_.    
+The library is meant to provide a convenience way of keeping track of your important logs, while still using the usual on-disk logs for full investigations if needed. 
+
 ## How To Add DiscordLogger To Your Project
 
 To use the `DiscordLogger` library in a SwiftPM project, 
@@ -122,7 +126,7 @@ Include `DiscordLogger` as a dependency for your targets:
 Finally, add `import DiscordLogger` to your source code.
 
 ## Versioning
-`DiscordLogger` will try to follow Semantic Versioning 2.0.0.
+`DiscordLogger` follows Semantic Versioning 2.0.0.
 
 ## Contribution & Support
 Any contribution is more than welcome. You can find me in [Vapor's Discord server](https://discord.gg/vapor) to discuss your ideas.    
