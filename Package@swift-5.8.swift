@@ -49,7 +49,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.49.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.5.2"),
-        .package(url: "https://github.com/DiscordBM/DiscordBM.git", from: "1.0.0-beta.62"),
+        .package(url: "https://github.com/DiscordBM/DiscordBM.git", from: "1.0.0-rc.1"),
     ],
     targets: [
         .target(
