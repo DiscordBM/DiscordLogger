@@ -79,7 +79,7 @@ DiscordGlobalConfiguration.logManager = await DiscordLogManager(
         ],
         extraMetadata: [.warning, .error, .critical],
         disabledLogLevels: [.debug, .trace], 
-        disabledInDebug: true
+        disabledInDebug: false
     )
 )
 ```
