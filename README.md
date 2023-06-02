@@ -21,8 +21,8 @@
 It uses [DiscordBM](https://github.com/DiscordBM/DiscordBM) to communicate with Discord.
 
 ## Showcase
-You can see Vapor community's Penny bot as a showcase of using this library in production. Penny uses `DiscordLogger` to send a selected group of important logs to an internal channel, so maintainers can be easily notified of any problems that might occur to her.    
-Penny is available [here](https://github.com/vapor/penny-bot) and you can see `DiscordLogger` being used [here](https://github.com/vapor/penny-bot/blob/main/CODE/Sources/PennyBOT/Penny.swift) .
+Vapor community's [Penny bot](https://github.com/vapor/penny-bot) serves as a good example of [utilizing this library](https://github.com/vapor/penny-bot/blob/main/CODE/Sources/PennyBOT/Penny.swift#L2).   
+Penny uses `DiscordLogger` to send important logs to an internal channel, making it easy for maintainers to receive notifications about any potential issues.
 
 ## How To Use
   
@@ -39,9 +39,7 @@ import AsyncHTTPClient
 let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
 
 /// Configure the Discord Logging Manager.
-DiscordGlobalConfiguration.logManager = await DiscordLogManager(
-    httpClient: httpClient
-)
+DiscordGlobalConfiguration.logManager = await DiscordLogManager(httpClient: httpClient)
 
 /// Bootstrap the `LoggingSystem`. After this, all your `Logger`s will automagically start using `DiscordLogHandler`.
 /// Do not use a `Task { }` to avoid possible bugs.
