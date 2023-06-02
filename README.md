@@ -42,13 +42,12 @@ let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
 DiscordGlobalConfiguration.logManager = await DiscordLogManager(httpClient: httpClient)
 
 /// Bootstrap the `LoggingSystem`. After this, all your `Logger`s will automagically start using `DiscordLogHandler`.
-/// Do not use a `Task { }` to avoid possible bugs.
-/// Wait before the `LoggingSystem` is bootstrapped.  
+/// Do not use a `Task { }` to avoid possible bugs. Wait before the `LoggingSystem` is bootstrapped.  
 await LoggingSystem.bootstrapWithDiscordLogger(
     /// The webhook address to send the logs to. 
     /// You can easily create a webhook using Discord desktop app with a few clicks.
     /// See https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks
-    /// There is a 'Making A Webhook' there.
+    /// There is a 'Making A Webhook' section there.
     address: try .url(<#Your Webhook URL#>),
     makeMainLogHandler: StreamLogHandler.standardOutput(label:metadataProvider:)
 )
