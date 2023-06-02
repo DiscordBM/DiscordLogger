@@ -65,8 +65,8 @@ DiscordGlobalConfiguration.logManager = await DiscordLogManager(
     configuration: .init(
         aliveNotice: .init(
             address: try .url(<#Your Webhook URL#>),
-            /// If nil, DiscordLogger will only send 1 "I'm alive" notice, on boot.
-            /// If not nil, it will send a "I'm alive" notice every this-amount too. 
+            /// If nil, `DiscordLogManager` will only send 1 "I'm alive" notice, on boot.
+            /// If not nil, it will send a "I'm alive" notice every this-amount too, if there is no logging activity. 
             interval: nil,
             message: "I'm Alive! :)",
             color: .blue,
