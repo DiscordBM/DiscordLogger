@@ -100,8 +100,10 @@ logger.critical("CRITICAL PROBLEM. ABOUT TO EXPLODE 💥")
 <img width="370" alt="DiscordLogger Showcase Output" src="https://user-images.githubusercontent.com/54685446/217464224-1cb6ed75-8683-4977-8bd3-03752d7d7597.png">
 
 > **Note**   
-> `DiscordLogger` is not meant to replace your on-disk logging, as it can be much less consistent due to nature of logging _over the network_ and also _sending messages to Discord_.    
-The library is meant to provide a convenience way of keeping track of your important logs, while still using the usual on-disk logs for full investigations if needed. 
+> * `DiscordLogger` is not meant to replace your on-disk logging, as it can be much less consistent due to nature of logging _over the network_ and also _sending messages to Discord_.
+> * The library is meant to provide a convenience way of keeping track of your important logs, while still using the usual on-disk logs for full investigations if needed.
+> * With Penny, we log everything at `debug`/`trace` level to stdout for AWS to pick up, while setting the `DiscordLogManager` to send the `warning`/`error` and a few `info`/`notice` logs to Discord.
+> * This way we are immediately notified of important `error`/`wraning`s, while using the AWS logs for full investigations if needed.
 
 ## How To Add DiscordLogger To Your Project
 
