@@ -244,7 +244,7 @@ public actor DiscordLogManager {
         
         @Sendable func send() async throws {
             try await Task.sleep(for: configuration.frequency)
-            try await performLogSend(address: address)
+            await performLogSend(address: address)
             try await send()
         }
         
@@ -252,12 +252,12 @@ public actor DiscordLogManager {
         sendLogsTasks[address] = Task { try? await send() }
     }
     
-    private func performLogSend(address: WebhookAddress) async throws {
+    private func performLogSend(address: WebhookAddress) async {
         let logs = getMaxAmountOfLogsAndFlush(address: address)
         if self.logs[address]?.isEmpty != false {
             self.sendLogsTasks[address]?.cancel()
         }
-        try await sendLogs(logs, address: address)
+        await sendLogs(logs, address: address)
     }
     
     private func getMaxAmountOfLogsAndFlush(address: WebhookAddress) -> [Log] {
@@ -279,7 +279,7 @@ public actor DiscordLogManager {
         return goodLogs
     }
     
-    private func sendLogs(_ logs: [Log], address: WebhookAddress) async throws {
+    private func sendLogs(_ logs: [Log], address: WebhookAddress) async {
         var logLevels = Set(logs.compactMap(\.level))
             .sorted(by: >)
             .compactMap({ configuration.mentions[$0] })
@@ -293,7 +293,7 @@ public actor DiscordLogManager {
         }
         let mentions = logLevels.joined(separator: " ")
         
-        try await sendLogsToWebhook(
+        await sendLogsToWebhook(
             content: mentions,
             embeds: logs.map(\.embed),
             address: address
@@ -306,18 +306,16 @@ public actor DiscordLogManager {
         content: String,
         embeds: [Embed],
         address: WebhookAddress
-    ) async throws {
+    ) async {
         let payload = Payloads.ExecuteWebhook(
             content: content,
             embeds: embeds
         )
-        let response = try await self.client.executeWebhookWithResponse(
-            address: address,
-            payload: payload
-        )
-        
         do {
-            try response.guardSuccess()
+            try await self.client.executeWebhookWithResponse(
+                address: address,
+                payload: payload
+            ).guardSuccess()
         } catch {
             logWarning("Received error from Discord after sending logs. This might be a library issue. Please report on https://github.com/DiscordBM/DiscordLogger/issues with full context", metadata: [
                 "error": .string("\(error)"),
