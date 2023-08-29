@@ -364,13 +364,13 @@ public actor DiscordLogManager {
             files: attachments.map {
                 RawFile(
                     data: $0.buffer,
-                    filename: "Log #\($0.number)"
+                    filename: "Log #\($0.number).json"
                 )
             },
             attachments: attachments.enumerated().map { (idx, attachment) in
                 return .init(
                     index: idx,
-                    filename: "Log #\(attachment.number)"
+                    filename: "Log #\(attachment.number).json"
                 )
             }
         )
