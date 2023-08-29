@@ -138,7 +138,13 @@ public actor DiscordLogManager {
         struct Attachment: Encodable {
             let level: Logger.Level
             let message: String
-            let metadata: [String: String]
+            let metadata: [String: String]?
+
+            init(level: Logger.Level, message: String, metadata: [String: String]) {
+                self.level = level
+                self.message = message
+                self.metadata = metadata.isEmpty ? nil : metadata
+            }
         }
 
         let embed: Embed
@@ -348,31 +354,21 @@ public actor DiscordLogManager {
         logs: [(embed: Embed, attachment: Log.Attachment?)],
         address: WebhookAddress
     ) async {
-        let attachments: [(number: Int, buffer: ByteBuffer)] = logs
+        let attachments: [(number: Int, attachment: Log.Attachment)] = logs
             .enumerated()
             .filter({ $0.element.attachment != nil })
             .map({ ($0.offset + 1, $0.element.attachment!) })
-            .compactMap { number, attachment in
-                guard let data = try? DiscordGlobalConfiguration.encoder.encode(attachment) else {
-                    return nil
-                }
-                return (number, ByteBuffer(data: data))
-            }
+        var encodedAttachments: Data {
+            (try? DiscordGlobalConfiguration.encoder.encode(LogsEncodingContainer(attachments))) ?? Data()
+        }
         let payload = Payloads.ExecuteWebhook(
             content: content,
             embeds: logs.map(\.embed),
-            files: attachments.map {
-                RawFile(
-                    data: $0.buffer,
-                    filename: "Log #\($0.number).json"
-                )
-            },
-            attachments: attachments.enumerated().map { (idx, attachment) in
-                return .init(
-                    index: idx,
-                    filename: "Log #\(attachment.number).json"
-                )
-            }
+            files: attachments.isEmpty ? [] : [RawFile(
+                data: ByteBuffer(data: encodedAttachments),
+                filename: "Logs.json"
+            )],
+            attachments: attachments.isEmpty ? nil : [.init(index: 0, filename: "Logs.json")]
         )
         do {
             try await self.client.executeWebhookWithResponse(
@@ -413,4 +409,50 @@ public actor DiscordLogManager {
         self.getMaxAmountOfLogsAndFlush(address: address)
     }
 #endif
+}
+
+private struct LogsEncodingContainer: Encodable {
+    let attachments: [(number: Int, attachment: DiscordLogManager.Log.Attachment)]
+
+    init(_ attachments: [(number: Int, attachment: DiscordLogManager.Log.Attachment)]) {
+        self.attachments = attachments
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case _1 = "1"
+        case _2 = "2"
+        case _3 = "3"
+        case _4 = "4"
+        case _5 = "5"
+        case _6 = "6"
+        case _7 = "7"
+        case _8 = "8"
+        case _9 = "9"
+        case _10 = "10"
+
+        init(int: Int) {
+            switch int {
+            case 1: self = ._1
+            case 2: self = ._2
+            case 3: self = ._3
+            case 4: self = ._4
+            case 5: self = ._5
+            case 6: self = ._6
+            case 7: self = ._7
+            case 8: self = ._8
+            case 9: self = ._9
+            case 10: self = ._10
+            default:
+                fatalError("Unexpected number")
+            }
+        }
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        for (number, attachment) in attachments {
+            let key = CodingKeys(int: number)
+            try container.encode(attachment, forKey: key)
+        }
+    }
 }
