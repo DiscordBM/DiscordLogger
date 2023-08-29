@@ -128,8 +128,8 @@ public struct DiscordLogHandler: LogHandler {
             )
         )
 
-        let attachmentDisabled = logManager.configuration.sendFullLogAsAttachment == .disabled
-        let attachment = attachmentDisabled ? nil : DiscordLogManager.Log.Attachment(
+        let attachmentDisabled = logManager.configuration.sendFullLogAsAttachment.isDisabled
+        let attachment = attachmentDisabled ? nil : LogInfo(
             level: level,
             message: "\(message)",
             metadata: allMetadata.mapValues(\.description)

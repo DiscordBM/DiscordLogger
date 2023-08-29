@@ -62,17 +62,38 @@ public actor DiscordLogManager {
             }
         }
 
-        public enum LogAttachmentPolicy: Sendable, Equatable {
+        public struct LogFormatter: Sendable {
+            public let format: @Sendable ([LogContainer]) -> ByteBuffer
 
-            public enum Format: Sendable {
-                case json
+            public init(format: @escaping @Sendable ([LogContainer]) -> ByteBuffer) {
+                self.format = format
             }
+        }
 
+        public enum LogAttachmentPolicy: Sendable {
             case disabled
-            case enabled(format: Format)
+            case enabled(formatter: LogFormatter)
 
             public static var enabled: Self {
-                .enabled(format: .json)
+                .enabled(formatter: .json)
+            }
+
+            var formatter: LogFormatter? {
+                switch self {
+                case .disabled:
+                    return nil
+                case .enabled(let formatter):
+                    return formatter
+                }
+            }
+
+            var isDisabled: Bool {
+                switch self {
+                case .disabled:
+                    return true
+                case .enabled:
+                    return false
+                }
             }
         }
 
@@ -134,21 +155,8 @@ public actor DiscordLogManager {
     }
     
     struct Log: CustomStringConvertible {
-
-        struct Attachment: Encodable {
-            let level: Logger.Level
-            let message: String
-            let metadata: [String: String]?
-
-            init(level: Logger.Level, message: String, metadata: [String: String]) {
-                self.level = level
-                self.message = message
-                self.metadata = metadata.isEmpty ? nil : metadata
-            }
-        }
-
         let embed: Embed
-        let attachment: Attachment?
+        let attachment: LogInfo?
         let level: Logger.Level?
         let isFirstAliveNotice: Bool
         
@@ -199,7 +207,7 @@ public actor DiscordLogManager {
     func include(
         address: WebhookAddress,
         embed: Embed,
-        attachment: Log.Attachment?,
+        attachment: LogInfo?,
         level: Logger.Level
     ) {
         self.include(
@@ -214,7 +222,7 @@ public actor DiscordLogManager {
     private func include(
         address: WebhookAddress,
         embed: Embed,
-        attachment: Log.Attachment?,
+        attachment: LogInfo?,
         level: Logger.Level?,
         isFirstAliveNotice: Bool
     ) {
@@ -351,24 +359,20 @@ public actor DiscordLogManager {
 
     private func sendLogsToWebhook(
         content: String,
-        logs: [(embed: Embed, attachment: Log.Attachment?)],
+        logs: [(embed: Embed, attachment: LogInfo?)],
         address: WebhookAddress
     ) async {
-        let attachments: [(number: Int, attachment: Log.Attachment)] = logs
-            .enumerated()
-            .filter({ $0.element.attachment != nil })
-            .map({ ($0.offset + 1, $0.element.attachment!) })
-        var encodedAttachments: Data {
-            (try? DiscordGlobalConfiguration.encoder.encode(LogsEncodingContainer(attachments))) ?? Data()
-        }
+        let attachment = makeAttachmentData(attachments: logs.map(\.attachment))
+
         let payload = Payloads.ExecuteWebhook(
             content: content,
             embeds: logs.map(\.embed),
-            files: attachments.isEmpty ? [] : [RawFile(
-                data: ByteBuffer(data: encodedAttachments),
-                filename: "Logs.json"
-            )],
-            attachments: attachments.isEmpty ? nil : [.init(index: 0, filename: "Logs.json")]
+            files: attachment.map { (name, buffer) in
+                [RawFile(data: buffer, filename: name)]
+            },
+            attachments: attachment.map { (name, _) in 
+                [.init(index: 0, filename: name)]
+            }
         )
         do {
             try await self.client.executeWebhookWithResponse(
@@ -382,7 +386,25 @@ public actor DiscordLogManager {
             ])
         }
     }
-    
+
+    private func makeAttachmentData(attachments: [LogInfo?]) -> (name: String, data: ByteBuffer)? {
+        if let formatter = self.configuration.sendFullLogAsAttachment.formatter {
+            let attachments: [LogContainer] = attachments
+                .enumerated()
+                .filter({ $0.element != nil })
+                .map({ LogContainer(number: $0.offset + 1, info: $0.element!) })
+            if attachments.isEmpty {
+                return nil
+            } else {
+                let buffer = formatter.format(attachments)
+                let name = "Logs-\(Int(Date().timeIntervalSince1970)).json"
+                return (name, buffer)
+            }
+        } else {
+            return nil
+        }
+    }
+
     private func logWarning(
         _ message: Logger.Message,
         metadata: Logger.Metadata? = nil,
@@ -411,48 +433,61 @@ public actor DiscordLogManager {
 #endif
 }
 
-private struct LogsEncodingContainer: Encodable {
-    let attachments: [(number: Int, attachment: DiscordLogManager.Log.Attachment)]
+//MARK: - +LogFormatter
 
-    init(_ attachments: [(number: Int, attachment: DiscordLogManager.Log.Attachment)]) {
-        self.attachments = attachments
-    }
+extension DiscordLogManager.Configuration.LogFormatter {
 
-    private enum CodingKeys: String, CodingKey {
-        case _1 = "1"
-        case _2 = "2"
-        case _3 = "3"
-        case _4 = "4"
-        case _5 = "5"
-        case _6 = "6"
-        case _7 = "7"
-        case _8 = "8"
-        case _9 = "9"
-        case _10 = "10"
-
-        init(int: Int) {
-            switch int {
-            case 1: self = ._1
-            case 2: self = ._2
-            case 3: self = ._3
-            case 4: self = ._4
-            case 5: self = ._5
-            case 6: self = ._6
-            case 7: self = ._7
-            case 8: self = ._8
-            case 9: self = ._9
-            case 10: self = ._10
-            default:
-                fatalError("Unexpected number")
-            }
+    public static var json: Self {
+        Self { logs in
+            let encodingContainer = LogsEncodingContainer(logs)
+            let data = try? DiscordGlobalConfiguration.encoder.encode(encodingContainer)
+            return ByteBuffer(data: data ?? Data())
         }
     }
 
-    func encode(to encoder: any Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        for (number, attachment) in attachments {
-            let key = CodingKeys(int: number)
-            try container.encode(attachment, forKey: key)
+    struct LogsEncodingContainer: Encodable {
+        let logs: [LogContainer]
+
+        init(_ logs: [LogContainer]) {
+            self.logs = logs
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case _1 = "1"
+            case _2 = "2"
+            case _3 = "3"
+            case _4 = "4"
+            case _5 = "5"
+            case _6 = "6"
+            case _7 = "7"
+            case _8 = "8"
+            case _9 = "9"
+            case _10 = "10"
+
+            init(int: Int) {
+                switch int {
+                case 1: self = ._1
+                case 2: self = ._2
+                case 3: self = ._3
+                case 4: self = ._4
+                case 5: self = ._5
+                case 6: self = ._6
+                case 7: self = ._7
+                case 8: self = ._8
+                case 9: self = ._9
+                case 10: self = ._10
+                default:
+                    fatalError("Unexpected number")
+                }
+            }
+        }
+
+        func encode(to encoder: any Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            for log in logs {
+                let key = CodingKeys(int: log.number)
+                try container.encode(log.info, forKey: key)
+            }
         }
     }
 }
