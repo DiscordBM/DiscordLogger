@@ -87,9 +87,9 @@ public struct DiscordLogHandler: LogHandler {
         message: Logger.Message,
         metadata: Logger.Metadata?,
         source: String,
-        file: String,
-        function: String,
-        line: UInt
+        file: String = #fileID,
+        function: String = #function,
+        line: UInt = #line
     ) { 
         let config = logManager.configuration
         
@@ -127,8 +127,22 @@ public struct DiscordLogHandler: LogHandler {
                 })
             )
         )
-        
-        Task { await logManager.include(address: address, embed: embed, level: level) }
+
+        let attachmentDisabled = logManager.configuration.sendFullLogAsAttachment == .disabled
+        let attachment = attachmentDisabled ? nil : DiscordLogManager.Log.Attachment(
+            level: level,
+            message: "\(message)",
+            metadata: allMetadata.mapValues(\.description)
+        )
+
+        Task {
+            await logManager.include(
+                address: address,
+                embed: embed,
+                attachment: attachment,
+                level: level
+            )
+        }
     }
 }
 

@@ -61,9 +61,24 @@ public actor DiscordLogManager {
                 }
             }
         }
-        
+
+        public enum LogAttachmentPolicy: Sendable, Equatable {
+
+            public enum Format: Sendable {
+                case json
+            }
+
+            case disabled
+            case enabled(format: Format)
+
+            public static var enabled: Self {
+                .enabled(format: .json)
+            }
+        }
+
         let frequency: Duration
         let aliveNotice: AliveNotice?
+        let sendFullLogAsAttachment: LogAttachmentPolicy
         let mentions: [Logger.Level: [String]]
         let colors: [Logger.Level: DiscordColor]
         let excludeMetadata: Set<Logger.Level>
@@ -76,6 +91,8 @@ public actor DiscordLogManager {
         ///   - frequency: The frequency of the log-sendings. e.g. if its set to 30s, logs will only be sent once-in-30s. Should not be lower than 10s, because of Discord rate-limits.
         ///   - aliveNotice: Configuration for sending "I am alive" messages every once in a while. Note that alive notices are delayed until it's been `interval`-time past last message.
         ///   e.g. `Logger(label: "Fallback", factory: StreamLogHandler.standardOutput(label:))`
+        ///   - sendFullLogAsAttachment: Whether or not to send the full log as an attachment.
+        ///   The normal logs might need to truncate some stuff when sending as embeds, due to Discord limits.
         ///   - mentions: ID of users/roles to be mentioned for each log-level.
         ///   - colors: Color of the embeds to be used for each log-level.
         ///   - excludeMetadata: Excludes all metadata for these log-levels.
@@ -86,6 +103,7 @@ public actor DiscordLogManager {
         public init(
             frequency: Duration = .seconds(10),
             aliveNotice: AliveNotice? = nil,
+            sendFullLogAsAttachment: LogAttachmentPolicy = .disabled,
             mentions: [Logger.Level: Mention] = [:],
             colors: [Logger.Level: DiscordColor] = [
                 .critical: .purple,
@@ -104,6 +122,7 @@ public actor DiscordLogManager {
         ) {
             self.frequency = frequency
             self.aliveNotice = aliveNotice
+            self.sendFullLogAsAttachment = sendFullLogAsAttachment
             self.mentions = mentions.mapValues { $0.toMentionStrings() }
             self.colors = colors
             self.excludeMetadata = excludeMetadata
@@ -115,7 +134,15 @@ public actor DiscordLogManager {
     }
     
     struct Log: CustomStringConvertible {
+
+        struct Attachment: Encodable {
+            let level: Logger.Level
+            let message: String
+            let metadata: [String: String]
+        }
+
         let embed: Embed
+        let attachment: Attachment?
         let level: Logger.Level?
         let isFirstAliveNotice: Bool
         
@@ -163,13 +190,25 @@ public actor DiscordLogManager {
         self.fallbackLogger = new ?? Logger(label: "DBM.LogManager")
     }
     
-    func include(address: WebhookAddress, embed: Embed, level: Logger.Level) {
-        self.include(address: address, embed: embed, level: level, isFirstAliveNotice: false)
+    func include(
+        address: WebhookAddress,
+        embed: Embed,
+        attachment: Log.Attachment?,
+        level: Logger.Level
+    ) {
+        self.include(
+            address: address,
+            embed: embed,
+            attachment: attachment,
+            level: level,
+            isFirstAliveNotice: false
+        )
     }
     
     private func include(
         address: WebhookAddress,
         embed: Embed,
+        attachment: Log.Attachment?,
         level: Logger.Level?,
         isFirstAliveNotice: Bool
     ) {
@@ -187,6 +226,7 @@ public actor DiscordLogManager {
         
         self.logs[address]!.append(.init(
             embed: embed,
+            attachment: attachment,
             level: level,
             isFirstAliveNotice: isFirstAliveNotice
         ))
@@ -232,6 +272,7 @@ public actor DiscordLogManager {
                 timestamp: Date(),
                 color: config.color
             ),
+            attachment: nil,
             level: nil,
             isFirstAliveNotice: isFirstNotice
         )
@@ -295,21 +336,43 @@ public actor DiscordLogManager {
         
         await sendLogsToWebhook(
             content: mentions,
-            embeds: logs.map(\.embed),
+            logs: logs.map({ ($0.embed, $0.attachment) }),
             address: address
         )
         
         self.setUpAliveNotices()
     }
-    
+
     private func sendLogsToWebhook(
         content: String,
-        embeds: [Embed],
+        logs: [(embed: Embed, attachment: Log.Attachment?)],
         address: WebhookAddress
     ) async {
+        let attachments: [(number: Int, buffer: ByteBuffer)] = logs
+            .enumerated()
+            .filter({ $0.element.attachment != nil })
+            .map({ ($0.offset + 1, $0.element.attachment!) })
+            .compactMap { number, attachment in
+                guard let data = try? DiscordGlobalConfiguration.encoder.encode(attachment) else {
+                    return nil
+                }
+                return (number, ByteBuffer(data: data))
+            }
         let payload = Payloads.ExecuteWebhook(
             content: content,
-            embeds: embeds
+            embeds: logs.map(\.embed),
+            files: attachments.map {
+                RawFile(
+                    data: $0.buffer,
+                    filename: "Log #\($0.number)"
+                )
+            },
+            attachments: attachments.enumerated().map { (idx, attachment) in
+                return .init(
+                    index: idx,
+                    filename: "Log #\(attachment.number)"
+                )
+            }
         )
         do {
             try await self.client.executeWebhookWithResponse(
