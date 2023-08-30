@@ -631,6 +631,13 @@ class DiscordLoggerTests: XCTestCase {
         XCTAssertEqual(field.name, "simple-trace-id")
         XCTAssertEqual(field.value, "1234-5678")
     }
+
+    func testLoggingAttachment() async throws {
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.timeZone = .init(identifier: "UTC")!
+        isoFormatter.formatOptions.union([.withFullTime, .withSpaceBetweenDateAndTime])
+        print(isoFormatter.string(from: Date()))
+    }
 }
 
 private actor FakeDiscordClient: DiscordClient, @unchecked Sendable {
