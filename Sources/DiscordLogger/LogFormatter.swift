@@ -7,12 +7,23 @@ public protocol LogFormatter: Sendable {
 }
 
 extension LogFormatter where Self == JSONLogFormatter {
+    /// Formats the log attachment as a json file.
+    /// The filename will not have a `.json` extension, it will include a time in `UTC`.
+    /// Use ``LogFormatter.json(withJSONExtension:timezone:)`` to customize the behavior.
     public static var json: any LogFormatter {
-        JSONLogFormatter(withJSONExtension: false)
+        JSONLogFormatter(withJSONExtension: false, timezone: .init(identifier: "UTC")!)
     }
 
-    public static func json(withJSONExtension: Bool = false) -> any LogFormatter {
-        JSONLogFormatter(withJSONExtension: withJSONExtension)
+    /// Formats the log attachment as a json file.
+    /// - Parameters:
+    ///   - withJSONExtension: Whether or not to include the `.json` extension in the filename.
+    ///   Setting this to true might make the file look bad on Desktop in Discord. Defaults to `false`.
+    ///   - timezone: What timezone to use for the date in filenames. Defaults to `UTC`.
+    public static func json(
+        withJSONExtension: Bool = false,
+        timezone: TimeZone = .init(identifier: "UTC")!
+    ) -> any LogFormatter {
+        JSONLogFormatter(withJSONExtension: withJSONExtension, timezone: timezone)
     }
 }
 
@@ -65,6 +76,7 @@ public struct JSONLogFormatter: LogFormatter {
     }
 
     let withJSONExtension: Bool
+    let timezone: TimeZone
 
     public func format(logs: [LogContainer]) -> ByteBuffer {
         let encodingContainer = LogsEncodingContainer(logs)
@@ -73,20 +85,38 @@ public struct JSONLogFormatter: LogFormatter {
     }
 
     public func makeFilename(logs: [LogContainer]) -> String {
-        let date = ISO8601DateFormatter.loggingDefault.string(from: Date())
+        let date = makeDateString()
         let prefix = "Logs-\(date)"
+
         if withJSONExtension {
             return "\(prefix).json"
         } else {
             return prefix
         }
     }
-}
 
-extension ISO8601DateFormatter {
-    static let loggingDefault: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.timeZone = .init(identifier: "UTC")
-        return formatter
-    }()
+    func makeDateString() -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let comps = calendar.dateComponents(in: timezone, from: Date())
+
+        func doubleDigit(_ int: Int) -> String {
+            let description = "\(int)"
+            if description.count == 1 {
+                return "0\(description)"
+            } else {
+                return description
+            }
+        }
+        let year = comps.year ?? 0
+        let month = doubleDigit(comps.month  ?? 0)
+        let day = doubleDigit(comps.day ?? 0)
+        let hour = doubleDigit(comps.hour ?? 0)
+        let minute = doubleDigit(comps.minute ?? 0)
+        let second = doubleDigit(comps.second ?? 0)
+        let micros = comps.nanosecond! / 1_000
+
+        let string = "\(year)\(month)\(day)T\(hour)\(minute)\(second).\(micros)"
+
+        return string
+    }
 }
