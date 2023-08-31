@@ -8,10 +8,10 @@ public protocol LogFormatter: Sendable {
 
 extension LogFormatter where Self == JSONLogFormatter {
     /// Formats the log attachment as a json file.
-    /// The filename will not have a `.json` extension, it will include a time in `UTC`.
-    /// Use ``LogFormatter.json(withJSONExtension:timezone:)`` to customize the behavior.
+    /// The filename won't have a `.json` extension and it contains a time in `gregorian` calendar in `UTC`.
+    /// Use ``LogFormatter.json(withJSONExtension:calendar:timezone:)`` to customize the behavior.
     public static var json: any LogFormatter {
-        JSONLogFormatter(withJSONExtension: false, timezone: .init(identifier: "UTC")!)
+        .json()
     }
 
     /// Formats the log attachment as a json file.
@@ -21,9 +21,14 @@ extension LogFormatter where Self == JSONLogFormatter {
     ///   - timezone: What timezone to use for the date in filenames. Defaults to `UTC`.
     public static func json(
         withJSONExtension: Bool = false,
+        calendar: Calendar = .init(identifier: .gregorian),
         timezone: TimeZone = .init(identifier: "UTC")!
     ) -> any LogFormatter {
-        JSONLogFormatter(withJSONExtension: withJSONExtension, timezone: timezone)
+        JSONLogFormatter(
+            withJSONExtension: withJSONExtension,
+            calendar: calendar,
+            timezone: timezone
+        )
     }
 }
 
@@ -76,6 +81,7 @@ public struct JSONLogFormatter: LogFormatter {
     }
 
     let withJSONExtension: Bool
+    let calendar: Calendar
     let timezone: TimeZone
 
     public func format(logs: [LogContainer]) -> ByteBuffer {
@@ -96,7 +102,6 @@ public struct JSONLogFormatter: LogFormatter {
     }
 
     func makeDateString() -> String {
-        let calendar = Calendar(identifier: .gregorian)
         let comps = calendar.dateComponents(in: timezone, from: Date())
 
         func doubleDigit(_ int: Int) -> String {
@@ -113,9 +118,8 @@ public struct JSONLogFormatter: LogFormatter {
         let hour = doubleDigit(comps.hour ?? 0)
         let minute = doubleDigit(comps.minute ?? 0)
         let second = doubleDigit(comps.second ?? 0)
-        let micros = comps.nanosecond! / 1_000
 
-        let string = "\(year)\(month)\(day)T\(hour)\(minute)\(second).\(micros)"
+        let string = "\(year)-\(month)-\(day)T\(hour)-\(minute)-\(second)"
 
         return string
     }

@@ -633,34 +633,9 @@ class DiscordLoggerTests: XCTestCase {
     }
 
     func testLoggingAttachment() async throws {
-        var calendar = Calendar.init(identifier: .gregorian)
-        calendar.timeZone = .init(identifier: "UTC")!
-        let comps = calendar.dateComponents(
-            [.year, .month, .day, .hour, .minute, .second, .nanosecond],
-            from: Date()
-        )
-        func doubleDigit(_ int: Int) -> String {
-            let description = "\(int)"
-            if description.count == 1 {
-                return "0\(description)"
-            } else {
-                return description
-            }
-        }
-        let year = comps.year!
-        let month = doubleDigit(comps.month!)
-        let day = doubleDigit(comps.day!)
-        let hour = doubleDigit(comps.hour!)
-        let minute = doubleDigit(comps.minute!)
-        let second = doubleDigit(comps.second!)
-        let micros = comps.nanosecond! / 1_000
-
-        let string = "\(year)\(month)\(day)T\(hour)\(minute)\(second).\(micros)"
-
-        print(string)
+        
     }
 }
-import Foundation
 
 private actor FakeDiscordClient: DiscordClient, @unchecked Sendable {
 
