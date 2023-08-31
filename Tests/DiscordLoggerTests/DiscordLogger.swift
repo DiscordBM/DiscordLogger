@@ -26,6 +26,7 @@ class DiscordLoggerTests: XCTestCase {
             client: self.client,
             configuration: .init(
                 frequency: .seconds(5),
+                sendFullLogAsAttachment: .enabled,
                 mentions: [
                     .trace: .role("33333333"),
                     .notice: .user("22222222"),
@@ -71,7 +72,7 @@ class DiscordLoggerTests: XCTestCase {
             let now = Date().timeIntervalSince1970
             let timestamp = embed.timestamp?.date.timeIntervalSince1970 ?? 0
             XCTAssertTrue(((now-10)...(now+10)).contains(timestamp))
-            XCTAssertEqual(embed.color?.value, DiscordColor.brown.value)
+            XCTAssertEqual(embed.color, DiscordColor.brown)
             XCTAssertEqual(embed.footer?.text, "test")
             XCTAssertEqual(embed.fields?.count, 0)
         }
@@ -82,7 +83,7 @@ class DiscordLoggerTests: XCTestCase {
             let now = Date().timeIntervalSince1970
             let timestamp = embed.timestamp?.date.timeIntervalSince1970 ?? 0
             XCTAssertTrue(((now-10)...(now+10)).contains(timestamp))
-            XCTAssertEqual(embed.color?.value, DiscordColor.green.value)
+            XCTAssertEqual(embed.color, DiscordColor.green)
             XCTAssertEqual(embed.footer?.text, "test")
             XCTAssertEqual(embed.fields?.count, 0)
         }
@@ -93,7 +94,7 @@ class DiscordLoggerTests: XCTestCase {
             let now = Date().timeIntervalSince1970
             let timestamp = embed.timestamp?.date.timeIntervalSince1970 ?? 0
             XCTAssertTrue(((now-10)...(now+10)).contains(timestamp))
-            XCTAssertEqual(embed.color?.value, DiscordColor.green.value)
+            XCTAssertEqual(embed.color, DiscordColor.green)
             XCTAssertEqual(embed.footer?.text, "test")
             let fields = try XCTUnwrap(embed.fields)
             XCTAssertEqual(fields.count, 1)
@@ -109,9 +110,129 @@ class DiscordLoggerTests: XCTestCase {
             let now = Date().timeIntervalSince1970
             let timestamp = embed.timestamp?.date.timeIntervalSince1970 ?? 0
             XCTAssertTrue(((now-10)...(now+10)).contains(timestamp))
-            XCTAssertEqual(embed.color?.value, DiscordColor.orange.value)
+            XCTAssertEqual(embed.color, DiscordColor.orange)
             XCTAssertEqual(embed.footer?.text, "test")
         }
+    }
+
+    func testLoggingAttachments() async throws {
+        DiscordGlobalConfiguration.logManager = DiscordLogManager(
+            client: self.client,
+            configuration: .init(
+                frequency: .milliseconds(100),
+                sendFullLogAsAttachment: .enabled(
+                    formatter: .json(
+                        withJSONExtension: true,
+                        calendar: .init(identifier: .persian),
+                        timezone: .init(identifier: "Asia/Tehran")!
+                    )
+                )
+            )
+        )
+        let logger = DiscordLogHandler.multiplexLogger(
+            label: "test",
+            address: try .url(webhookUrl),
+            makeMainLogHandler: { _, _ in SwiftLogNoOpLogHandler() }
+        )
+
+        logger.notice("Log with attachment!", metadata: [
+            "metadata1": "value1",
+            "metadata2": "value2",
+        ])
+        logger.info("Another Log With Attachment!")
+
+        let expectation = XCTestExpectation(description: "log")
+        await self.client.setExpectation(to: expectation)
+
+        await waitFulfill(for: [expectation], timeout: 6)
+
+        let anyPayload = await self.client.payloads.first
+        let payload = try XCTUnwrap(anyPayload as? Payloads.ExecuteWebhook)
+
+        let attachment = try XCTUnwrap(payload.attachments?.first)
+
+        let file = try XCTUnwrap(payload.files?.first)
+        XCTAssertGreaterThan(file.data.readableBytes, 10)
+        XCTAssertEqual(attachment.filename, file.filename)
+
+        let embeds = try XCTUnwrap(payload.embeds)
+        if embeds.count != 2 {
+            XCTFail("Expected 2 embeds, but found \(embeds.count): \(embeds)")
+            return
+        }
+
+        do {
+            let embed = embeds[0]
+            XCTAssertEqual(embed.title, "Log with attachment!")
+            let now = Date().timeIntervalSince1970
+            let timestamp = embed.timestamp?.date.timeIntervalSince1970 ?? 0
+            XCTAssertTrue(((now-10)...(now+10)).contains(timestamp))
+            XCTAssertEqual(embed.color, DiscordColor.green)
+            XCTAssertEqual(embed.footer?.text, "test")
+
+            let fields = try XCTUnwrap(embed.fields)
+            if fields.count != 2 {
+                XCTFail("Expected 2 fields, but found \(fields.count): \(fields)")
+                return
+            }
+
+            let field1 = fields[0]
+            XCTAssertEqual(field1.name, "metadata2")
+            XCTAssertEqual(field1.value, "value2")
+
+            let field2 = fields[1]
+            XCTAssertEqual(field2.name, "metadata1")
+            XCTAssertEqual(field2.value, "value1")
+        }
+
+        do {
+            let embed = embeds[1]
+            XCTAssertEqual(embed.title, "Another Log With Attachment!")
+            let now = Date().timeIntervalSince1970
+            let timestamp = embed.timestamp?.date.timeIntervalSince1970 ?? 0
+            XCTAssertTrue(((now-10)...(now+10)).contains(timestamp))
+            XCTAssertEqual(embed.color, DiscordColor.blue)
+            XCTAssertEqual(embed.footer?.text, "test")
+            XCTAssertEqual(embed.fields?.count, 0)
+        }
+    }
+
+    func testLoggingAttachmentLimits() async throws {
+        DiscordGlobalConfiguration.logManager = DiscordLogManager(
+            client: self.client,
+            configuration: .init(
+                frequency: .milliseconds(100),
+                sendFullLogAsAttachment: .enabled(
+                    formatter: .json(
+                        withJSONExtension: true,
+                        calendar: .init(identifier: .persian),
+                        timezone: .init(identifier: "Asia/Tehran")!
+                    )
+                )
+            )
+        )
+        let logger = DiscordLogHandler.multiplexLogger(
+            label: "test",
+            address: try .url(webhookUrl),
+            makeMainLogHandler: { _, _ in SwiftLogNoOpLogHandler() }
+        )
+
+        let mb30 = String(repeating: "a", count: 30_000_000)
+        logger.info("\(mb30)")
+
+        let expectation = XCTestExpectation(description: "log")
+        await self.client.setExpectation(to: expectation)
+
+        await waitFulfill(for: [expectation], timeout: 6)
+
+        let anyPayload = await self.client.payloads.first
+        let payload = try XCTUnwrap(anyPayload as? Payloads.ExecuteWebhook)
+
+        let attachment = try XCTUnwrap(payload.attachments?.first)
+
+        let file = try XCTUnwrap(payload.files?.first)
+        XCTAssertEqual(file.data.readableBytes, 24_000_000)
+        XCTAssertEqual(attachment.filename, file.filename)
     }
 
     func testExcludeMetadata() async throws {
@@ -630,10 +751,6 @@ class DiscordLoggerTests: XCTestCase {
         let field = try XCTUnwrap(fields.first)
         XCTAssertEqual(field.name, "simple-trace-id")
         XCTAssertEqual(field.value, "1234-5678")
-    }
-
-    func testLoggingAttachment() async throws {
-        
     }
 }
 

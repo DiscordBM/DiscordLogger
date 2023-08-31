@@ -10,7 +10,7 @@ extension LogFormatter where Self == JSONLogFormatter {
     /// Formats the log attachment as a json file.
     /// The filename won't have a `.json` extension and it contains a time in `gregorian` calendar in `UTC`.
     /// Use ``LogFormatter.json(withJSONExtension:calendar:timezone:)`` to customize the behavior.
-    public static var json: any LogFormatter {
+    public static var json: some LogFormatter {
         .json()
     }
 
@@ -23,7 +23,7 @@ extension LogFormatter where Self == JSONLogFormatter {
         withJSONExtension: Bool = false,
         calendar: Calendar = .init(identifier: .gregorian),
         timezone: TimeZone = .init(identifier: "UTC")!
-    ) -> any LogFormatter {
+    ) -> some LogFormatter {
         JSONLogFormatter(
             withJSONExtension: withJSONExtension,
             calendar: calendar,
@@ -119,7 +119,7 @@ public struct JSONLogFormatter: LogFormatter {
         let minute = doubleDigit(comps.minute ?? 0)
         let second = doubleDigit(comps.second ?? 0)
 
-        let string = "\(year)-\(month)-\(day)T\(hour)-\(minute)-\(second)"
+        let string = "\(year)-\(month)-\(day)_\(hour)-\(minute)-\(second)"
 
         return string
     }

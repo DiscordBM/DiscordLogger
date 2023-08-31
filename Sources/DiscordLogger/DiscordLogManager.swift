@@ -64,10 +64,21 @@ public actor DiscordLogManager {
 
         public enum LogAttachmentPolicy: Sendable {
             case disabled
-            case enabled(formatter: any LogFormatter = .json)
+            /// Use ``enabled(formatter:)`` for better type-inference by compiler.
+            /// Otherwise you can use this too.
+            case enabled(_formatter: any LogFormatter = .json)
 
+            /// Enable the log attachments.
             public static var enabled: Self {
                 .enabled(formatter: .json)
+            }
+
+            /// Enable the log attachments.
+            ///
+            /// To enable compiler-helps with `LogFormatter`-extension inferences like `.json`.
+            /// Uses `some LogFormatter` instead of `any LogFormatter` for this reason.
+            public static func enabled(formatter: some LogFormatter = .json) -> Self {
+                .enabled(_formatter: formatter)
             }
 
             var formatter: (any LogFormatter)? {
@@ -388,7 +399,15 @@ public actor DiscordLogManager {
             if attachments.isEmpty {
                 return nil
             } else {
-                let buffer = formatter.format(logs: attachments)
+                var buffer = formatter.format(logs: attachments)
+                /// Discord has a limit of 25MB of attachments.
+                /// 24MB is already too much for 10 logs, so we just truncate the buffer.
+                let mb24 = 24_000_000
+                if buffer.readableBytes > mb24 {
+                    buffer = buffer.getSlice(at: buffer.readerIndex, length: mb24) ?? ByteBuffer(
+                        string: "<error-could-not-slice-buffer-please-report-on-github-in-DiscordLogger-repo>"
+                    )
+                }
                 let name = formatter.makeFilename(logs: attachments)
                 return (name, buffer)
             }
