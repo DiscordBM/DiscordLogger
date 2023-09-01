@@ -66,7 +66,7 @@ public struct JSONLogFormatter: LogFormatter {
                 case 9: self = ._9
                 case 10: self = ._10
                 default:
-                    fatalError("Unexpected number")
+                    fatalError("Unexpected number in 'LogsEncodingContainer'.")
                 }
             }
         }
