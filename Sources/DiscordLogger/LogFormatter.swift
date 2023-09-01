@@ -92,7 +92,7 @@ public struct JSONLogFormatter: LogFormatter {
 
     public func makeFilename(logs: [LogContainer]) -> String {
         let date = makeDateString()
-        let prefix = "Logs-\(date)"
+        let prefix = "Logs_\(date)"
 
         if withJSONExtension {
             return "\(prefix).json"
