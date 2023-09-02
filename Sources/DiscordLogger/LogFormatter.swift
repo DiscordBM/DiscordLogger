@@ -1,5 +1,9 @@
 import struct NIOCore.ByteBuffer
+#if canImport(Darwin)
 import Foundation
+#else
+@preconcurrency import Foundation
+#endif
 
 public protocol LogFormatter: Sendable {
     func format(logs: [LogContainer]) -> ByteBuffer
