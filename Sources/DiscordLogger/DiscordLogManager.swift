@@ -77,6 +77,8 @@ public actor DiscordLogManager {
             ///
             /// To enable compiler-helps with `LogFormatter`-extension inferences like `.json`.
             /// Uses `some LogFormatter` instead of `any LogFormatter` for this reason.
+            ///
+            /// https://github.com/apple/swift/issues/68269
             public static func enabled(formatter: some LogFormatter = .json) -> Self {
                 .enabled(_formatter: formatter)
             }
