@@ -61,9 +61,50 @@ public actor DiscordLogManager {
                 }
             }
         }
-        
+
+        public enum LogAttachmentPolicy: Sendable {
+            case disabled
+            /// Use ``enabled(formatter:)`` for better type-inference by compiler.
+            /// Otherwise you can use this too.
+            case enabled(_formatter: any LogFormatter = .json)
+
+            /// Enable the log attachments.
+            public static var enabled: Self {
+                .enabled(formatter: .json)
+            }
+
+            /// Enable the log attachments.
+            ///
+            /// To enable compiler-helps with `LogFormatter`-extension inferences like `.json`.
+            /// Uses `some LogFormatter` instead of `any LogFormatter` for this reason.
+            ///
+            /// https://github.com/apple/swift/issues/68269
+            public static func enabled(formatter: some LogFormatter = .json) -> Self {
+                .enabled(_formatter: formatter)
+            }
+
+            var formatter: (any LogFormatter)? {
+                switch self {
+                case .disabled:
+                    return nil
+                case .enabled(let formatter):
+                    return formatter
+                }
+            }
+
+            var isDisabled: Bool {
+                switch self {
+                case .disabled:
+                    return true
+                case .enabled:
+                    return false
+                }
+            }
+        }
+
         let frequency: Duration
         let aliveNotice: AliveNotice?
+        let sendFullLogAsAttachment: LogAttachmentPolicy
         let mentions: [Logger.Level: [String]]
         let colors: [Logger.Level: DiscordColor]
         let excludeMetadata: Set<Logger.Level>
@@ -76,6 +117,8 @@ public actor DiscordLogManager {
         ///   - frequency: The frequency of the log-sendings. e.g. if its set to 30s, logs will only be sent once-in-30s. Should not be lower than 10s, because of Discord rate-limits.
         ///   - aliveNotice: Configuration for sending "I am alive" messages every once in a while. Note that alive notices are delayed until it's been `interval`-time past last message.
         ///   e.g. `Logger(label: "Fallback", factory: StreamLogHandler.standardOutput(label:))`
+        ///   - sendFullLogAsAttachment: Whether or not to send the full log as an attachment.
+        ///   The normal logs might need to truncate some stuff when sending as embeds, due to Discord limits.
         ///   - mentions: ID of users/roles to be mentioned for each log-level.
         ///   - colors: Color of the embeds to be used for each log-level.
         ///   - excludeMetadata: Excludes all metadata for these log-levels.
@@ -86,6 +129,7 @@ public actor DiscordLogManager {
         public init(
             frequency: Duration = .seconds(10),
             aliveNotice: AliveNotice? = nil,
+            sendFullLogAsAttachment: LogAttachmentPolicy = .disabled,
             mentions: [Logger.Level: Mention] = [:],
             colors: [Logger.Level: DiscordColor] = [
                 .critical: .purple,
@@ -104,6 +148,7 @@ public actor DiscordLogManager {
         ) {
             self.frequency = frequency
             self.aliveNotice = aliveNotice
+            self.sendFullLogAsAttachment = sendFullLogAsAttachment
             self.mentions = mentions.mapValues { $0.toMentionStrings() }
             self.colors = colors
             self.excludeMetadata = excludeMetadata
@@ -116,6 +161,7 @@ public actor DiscordLogManager {
     
     struct Log: CustomStringConvertible {
         let embed: Embed
+        let attachment: LogInfo?
         let level: Logger.Level?
         let isFirstAliveNotice: Bool
         
@@ -163,13 +209,25 @@ public actor DiscordLogManager {
         self.fallbackLogger = new ?? Logger(label: "DBM.LogManager")
     }
     
-    func include(address: WebhookAddress, embed: Embed, level: Logger.Level) {
-        self.include(address: address, embed: embed, level: level, isFirstAliveNotice: false)
+    func include(
+        address: WebhookAddress,
+        embed: Embed,
+        attachment: LogInfo?,
+        level: Logger.Level
+    ) {
+        self.include(
+            address: address,
+            embed: embed,
+            attachment: attachment,
+            level: level,
+            isFirstAliveNotice: false
+        )
     }
     
     private func include(
         address: WebhookAddress,
         embed: Embed,
+        attachment: LogInfo?,
         level: Logger.Level?,
         isFirstAliveNotice: Bool
     ) {
@@ -187,6 +245,7 @@ public actor DiscordLogManager {
         
         self.logs[address]!.append(.init(
             embed: embed,
+            attachment: attachment,
             level: level,
             isFirstAliveNotice: isFirstAliveNotice
         ))
@@ -232,6 +291,7 @@ public actor DiscordLogManager {
                 timestamp: Date(),
                 color: config.color
             ),
+            attachment: nil,
             level: nil,
             isFirstAliveNotice: isFirstNotice
         )
@@ -295,21 +355,29 @@ public actor DiscordLogManager {
         
         await sendLogsToWebhook(
             content: mentions,
-            embeds: logs.map(\.embed),
+            logs: logs.map({ ($0.embed, $0.attachment) }),
             address: address
         )
         
         self.setUpAliveNotices()
     }
-    
+
     private func sendLogsToWebhook(
         content: String,
-        embeds: [Embed],
+        logs: [(embed: Embed, attachment: LogInfo?)],
         address: WebhookAddress
     ) async {
+        let attachment = makeAttachmentData(attachments: logs.map(\.attachment))
+
         let payload = Payloads.ExecuteWebhook(
             content: content,
-            embeds: embeds
+            embeds: logs.map(\.embed),
+            files: attachment.map { (name, buffer) in
+                [RawFile(data: buffer, filename: name)]
+            },
+            attachments: attachment.map { (name, _) in 
+                [.init(index: 0, filename: name)]
+            }
         )
         do {
             try await self.client.executeWebhookWithResponse(
@@ -323,7 +391,33 @@ public actor DiscordLogManager {
             ])
         }
     }
-    
+
+    private func makeAttachmentData(attachments: [LogInfo?]) -> (name: String, data: ByteBuffer)? {
+        if let formatter = self.configuration.sendFullLogAsAttachment.formatter {
+            let attachments: [LogContainer] = attachments
+                .enumerated()
+                .filter({ $0.element != nil })
+                .map({ LogContainer(number: $0.offset + 1, info: $0.element!) })
+            if attachments.isEmpty {
+                return nil
+            } else {
+                var buffer = formatter.format(logs: attachments)
+                /// Discord has a limit of 25MB of attachments.
+                /// 24MB is already too much for 10 logs, so we just truncate the buffer.
+                let mb24 = 24_000_000
+                if buffer.readableBytes > mb24 {
+                    buffer = buffer.getSlice(at: buffer.readerIndex, length: mb24) ?? ByteBuffer(
+                        string: "<error-could-not-slice-buffer-please-report-on-github-in-DiscordLogger-repo>"
+                    )
+                }
+                let name = formatter.makeFilename(logs: attachments)
+                return (name, buffer)
+            }
+        } else {
+            return nil
+        }
+    }
+
     private func logWarning(
         _ message: Logger.Message,
         metadata: Logger.Metadata? = nil,
