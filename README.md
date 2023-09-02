@@ -72,6 +72,7 @@ DiscordGlobalConfiguration.logManager = await DiscordLogManager(
             color: .blue,
             initialNoticeMention: .user("970723029262942248")
         ),
+        sendFullLogAsAttachment: .enabled,
         mentions: [
             .warning: .role("970723134149918800"),
             .error: .role("970723101044244510"),
