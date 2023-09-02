@@ -10,7 +10,7 @@ extension LogFormatter where Self == JSONLogFormatter {
     /// Formats the log attachment as a json file.
     /// The filename won't have a `.json` extension and it contains a time in `gregorian` calendar in `UTC`.
     /// Use ``LogFormatter.json(withJSONExtension:calendar:timezone:)`` to customize the behavior.
-    public static var json: some LogFormatter {
+    public static var json: JSONLogFormatter {
         .json()
     }
 
@@ -23,7 +23,7 @@ extension LogFormatter where Self == JSONLogFormatter {
         withJSONExtension: Bool = false,
         calendar: Calendar = .init(identifier: .gregorian),
         timezone: TimeZone = .init(identifier: "UTC")!
-    ) -> some LogFormatter {
+    ) -> JSONLogFormatter {
         JSONLogFormatter(
             withJSONExtension: withJSONExtension,
             calendar: calendar,
