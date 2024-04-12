@@ -21,7 +21,7 @@
 It uses [DiscordBM](https://github.com/DiscordBM/DiscordBM) to communicate with Discord.
 
 ## Showcase
-Vapor community's [Penny bot](https://github.com/vapor/penny-bot) serves as a good example of [utilizing this library](https://github.com/vapor/penny-bot/blob/main/Sources/Penny/DiscordFactory.swift#L2).   
+Vapor community's [Penny bot](https://github.com/vapor/penny-bot) serves as a good example of [utilizing this library](https://github.com/vapor/penny-bot/blob/acdf26167099858e691c403f8a8660348031d0e0/Sources/Penny/MainService/PennyService.swift#L2).   
 Penny uses `DiscordLogger` to send a select group of important logs to an internal channel, making it easy for maintainers to receive notifications about any potential issues.
 
 ## How To Use
