@@ -1,36 +1,6 @@
-// swift-tools-version: 5.8
+// swift-tools-version: 5.9
 
 import PackageDescription
-
-let upcomingFeatureFlags: [SwiftSetting] = [
-    /// `-enable-upcoming-feature` flags will get removed in the future
-    /// and we'll need to remove them from here too.
-
-    /// https://github.com/apple/swift-evolution/blob/main/proposals/0335-existential-any.md
-    /// Require `any` for existential types.
-        .enableUpcomingFeature("ExistentialAny"),
-
-    /// https://github.com/apple/swift-evolution/blob/main/proposals/0274-magic-file.md
-    /// Nicer `#file`.
-        .enableUpcomingFeature("ConciseMagicFile"),
-
-    /// https://github.com/apple/swift-evolution/blob/main/proposals/0286-forward-scan-trailing-closures.md
-    /// This one shouldn't do much to be honest, but shouldn't hurt as well.
-        .enableUpcomingFeature("ForwardTrailingClosures"),
-
-    /// https://github.com/apple/swift-evolution/blob/main/proposals/0354-regex-literals.md
-    /// `BareSlashRegexLiterals` not enabled since we don't use regex anywhere.
-
-    /// https://github.com/apple/swift-evolution/blob/main/proposals/0384-importing-forward-declared-objc-interfaces-and-protocols.md
-    /// `ImportObjcForwardDeclarations` not enabled because it's objc-related.
-]
-
-let swiftSettings: [SwiftSetting] = [
-    /// `DiscordBM` passes the `complete` level.
-    ///
-    /// `minimal` / `targeted` / `complete`
-    //    .unsafeFlags(["-strict-concurrency=complete"])
-] + upcomingFeatureFlags
 
 let package = Package(
     name: "DiscordLogger",
@@ -71,3 +41,41 @@ let package = Package(
         ),
     ]
 )
+
+var featureFlags: [SwiftSetting] {
+    [
+        /// `-enable-upcoming-feature` flags will get removed in the future
+        /// and we'll need to remove them from here too.
+
+        /// https://github.com/apple/swift-evolution/blob/main/proposals/0335-existential-any.md
+        /// Require `any` for existential types.
+        .enableUpcomingFeature("ExistentialAny"),
+
+        /// https://github.com/apple/swift-evolution/blob/main/proposals/0274-magic-file.md
+        /// Nicer `#file`.
+            .enableUpcomingFeature("ConciseMagicFile"),
+
+        /// https://github.com/apple/swift-evolution/blob/main/proposals/0286-forward-scan-trailing-closures.md
+        /// This one shouldn't do much to be honest, but shouldn't hurt as well.
+            .enableUpcomingFeature("ForwardTrailingClosures"),
+
+        /// https://github.com/apple/swift-evolution/blob/main/proposals/0354-regex-literals.md
+        /// `BareSlashRegexLiterals` not enabled since we don't use regex anywhere.
+
+        /// https://github.com/apple/swift-evolution/blob/main/proposals/0384-importing-forward-declared-objc-interfaces-and-protocols.md
+        /// `ImportObjcForwardDeclarations` not enabled because it's objc-related.
+    ]
+}
+
+var experimentalFeatureFlags: [SwiftSetting] {
+    [
+        /// `DiscordBM` passes the `complete` level.
+        ///
+        /// `minimal` / `targeted` / `complete`
+        .enableExperimentalFeature("StrictConcurrency=complete"),
+    ]
+}
+
+var swiftSettings: [SwiftSetting] {
+    featureFlags + experimentalFeatureFlags
+}
