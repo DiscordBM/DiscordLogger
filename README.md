@@ -25,21 +25,10 @@ Vapor community's [Penny bot](https://github.com/vapor/penny-bot) serves as a go
 Penny uses `DiscordLogger` to send a select group of important logs to an internal channel, making it easy for maintainers to receive notifications about any potential issues.
 
 ## How To Use
-  
-> Make sure you have **Xcode 14.1 or above**. Lower Xcode 14 versions have known issues that cause problems for libraries.    
 
-Make sure you've added [swift-log](https://github.com/apple/swift-log) and [AsyncHTTPClient](https://github.com/swift-server/async-http-client) to your dependancies.
 ```swift
 import DiscordLogger
 import Logging
-import AsyncHTTPClient
-
-/// Make an `HTTPClient`.
-/// If you've already made an `HTTPClient` somewhere else, you should use that instead.
-let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
-
-/// Configure the Discord Logging Manager.
-DiscordGlobalConfiguration.logManager = await DiscordLogManager(httpClient: httpClient)
 
 /// Bootstrap the `LoggingSystem`. After this, all your `Logger`s will automagically start using `DiscordLogHandler`.
 /// Do not use a `Task { }` to avoid possible bugs. Wait before the `LoggingSystem` is bootstrapped.  
@@ -60,8 +49,10 @@ Here is an example of a decently-configured `DiscordLogManager`:
 > Read `DiscordLogManager.Configuration.init` documentation for full info.
 
 ```swift
+let mySpecialHTTPClient: HTTPClient = ...
+
 DiscordGlobalConfiguration.logManager = await DiscordLogManager(
-    httpClient: httpClient,
+    httpClient: mySpecialHTTPClient,
     configuration: .init(
         aliveNotice: .init(
             address: try .url(<#Your Webhook URL#>),

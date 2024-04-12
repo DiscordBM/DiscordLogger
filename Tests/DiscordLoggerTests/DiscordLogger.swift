@@ -26,7 +26,7 @@ class DiscordLoggerTests: XCTestCase {
             client: self.client,
             configuration: .init(
                 frequency: .seconds(5),
-                sendFullLogAsAttachment: .enabled,
+                sendFullLogsAsAttachment: .enabled,
                 mentions: [
                     .trace: .role("33333333"),
                     .notice: .user("22222222"),
@@ -120,7 +120,7 @@ class DiscordLoggerTests: XCTestCase {
             client: self.client,
             configuration: .init(
                 frequency: .milliseconds(100),
-                sendFullLogAsAttachment: .enabled(
+                sendFullLogsAsAttachment: .enabled(
                     formatter: .json(
                         withJSONExtension: true,
                         calendar: .init(identifier: .persian),
@@ -202,7 +202,7 @@ class DiscordLoggerTests: XCTestCase {
             client: self.client,
             configuration: .init(
                 frequency: .milliseconds(100),
-                sendFullLogAsAttachment: .enabled(
+                sendFullLogsAsAttachment: .enabled(
                     formatter: .json(
                         withJSONExtension: true,
                         calendar: .init(identifier: .persian),

@@ -104,7 +104,7 @@ public actor DiscordLogManager {
 
         let frequency: Duration
         let aliveNotice: AliveNotice?
-        let sendFullLogAsAttachment: LogAttachmentPolicy
+        let sendFullLogsAsAttachment: LogAttachmentPolicy
         let mentions: [Logger.Level: [String]]
         let colors: [Logger.Level: DiscordColor]
         let excludeMetadata: Set<Logger.Level>
@@ -113,6 +113,51 @@ public actor DiscordLogManager {
         let disabledInDebug: Bool
         let maxStoredLogsCount: Int
         
+        /// - Parameters:
+        ///   - frequency: The frequency of the log-sendings. e.g. if its set to 30s, logs will only be sent once-in-30s. Should not be lower than 10s, because of Discord rate-limits.
+        ///   - aliveNotice: Configuration for sending "I am alive" messages every once in a while. Note that alive notices are delayed until it's been `interval`-time past last message.
+        ///   e.g. `Logger(label: "Fallback", factory: StreamLogHandler.standardOutput(label:))`
+        ///   - sendFullLogsAsAttachment: Whether or not to send the full log as an attachment.
+        ///   The normal logs might need to truncate some stuff when sending as embeds, due to Discord limits.
+        ///   - mentions: ID of users/roles to be mentioned for each log-level.
+        ///   - colors: Color of the embeds to be used for each log-level.
+        ///   - excludeMetadata: Excludes all metadata for these log-levels.
+        ///   - extraMetadata: Will log `source`, `file`, `function` and `line` as well.
+        ///   - disabledLogLevels: `Logger.Level`s to never be logged.
+        ///   - disabledInDebug: Whether or not to disable logging in DEBUG.
+        ///   - maxStoredLogsCount: If there are more logs than this count, the log manager will start removing the oldest un-sent logs to reduce memory consumption.
+        public init(
+            frequency: Duration = .seconds(10),
+            aliveNotice: AliveNotice? = nil,
+            sendFullLogsAsAttachment: LogAttachmentPolicy = .disabled,
+            mentions: [Logger.Level: Mention] = [:],
+            colors: [Logger.Level: DiscordColor] = [
+                .critical: .purple,
+                .error: .red,
+                .warning: .orange,
+                .trace: .brown,
+                .debug: .yellow,
+                .notice: .green,
+                .info: .blue,
+            ],
+            excludeMetadata: Set<Logger.Level> = [],
+            extraMetadata: Set<Logger.Level> = [],
+            disabledLogLevels: Set<Logger.Level> = [],
+            disabledInDebug: Bool = false,
+            maxStoredLogsCount: Int = 1_000
+        ) {
+            self.frequency = frequency
+            self.aliveNotice = aliveNotice
+            self.sendFullLogsAsAttachment = sendFullLogsAsAttachment
+            self.mentions = mentions.mapValues { $0.toMentionStrings() }
+            self.colors = colors
+            self.excludeMetadata = excludeMetadata
+            self.extraMetadata = extraMetadata
+            self.disabledLogLevels = disabledLogLevels
+            self.disabledInDebug = disabledInDebug
+            self.maxStoredLogsCount = maxStoredLogsCount
+        }
+
         /// - Parameters:
         ///   - frequency: The frequency of the log-sendings. e.g. if its set to 30s, logs will only be sent once-in-30s. Should not be lower than 10s, because of Discord rate-limits.
         ///   - aliveNotice: Configuration for sending "I am alive" messages every once in a while. Note that alive notices are delayed until it's been `interval`-time past last message.
@@ -126,6 +171,11 @@ public actor DiscordLogManager {
         ///   - disabledLogLevels: `Logger.Level`s to never be logged.
         ///   - disabledInDebug: Whether or not to disable logging in DEBUG.
         ///   - maxStoredLogsCount: If there are more logs than this count, the log manager will start removing the oldest un-sent logs to reduce memory consumption.
+        @available(
+            *,
+             unavailable,
+             renamed: "init(frequency:aliveNotice:sendFullLogsAsAttachment:mentions:colors:excludeMetadata:extraMetadata:disabledLogLevels:disabledInDebug:maxStoredLogsCount:)"
+        )
         public init(
             frequency: Duration = .seconds(10),
             aliveNotice: AliveNotice? = nil,
@@ -146,16 +196,7 @@ public actor DiscordLogManager {
             disabledInDebug: Bool = false,
             maxStoredLogsCount: Int = 1_000
         ) {
-            self.frequency = frequency
-            self.aliveNotice = aliveNotice
-            self.sendFullLogAsAttachment = sendFullLogAsAttachment
-            self.mentions = mentions.mapValues { $0.toMentionStrings() }
-            self.colors = colors
-            self.excludeMetadata = excludeMetadata
-            self.extraMetadata = extraMetadata
-            self.disabledLogLevels = disabledLogLevels
-            self.disabledInDebug = disabledInDebug
-            self.maxStoredLogsCount = maxStoredLogsCount
+            fatalError()
         }
     }
     
@@ -184,7 +225,7 @@ public actor DiscordLogManager {
     private var aliveNoticeTask: Task<Void, Never>?
     
     public init(
-        httpClient: HTTPClient,
+        httpClient: HTTPClient = .shared,
         configuration: Configuration = Configuration()
     ) async {
         /// Will only ever send requests to a webhook endpoint
@@ -393,7 +434,7 @@ public actor DiscordLogManager {
     }
 
     private func makeAttachmentData(attachments: [LogInfo?]) -> (name: String, data: ByteBuffer)? {
-        if let formatter = self.configuration.sendFullLogAsAttachment.formatter {
+        if let formatter = self.configuration.sendFullLogsAsAttachment.formatter {
             let attachments: [LogContainer] = attachments
                 .enumerated()
                 .filter({ $0.element != nil })
