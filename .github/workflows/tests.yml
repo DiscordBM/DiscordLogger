@@ -4,13 +4,13 @@ concurrency:
   cancel-in-progress: true
 on:
   pull_request: { types: [opened, reopened, synchronize, ready_for_review] }
-  push: { branches: [ main ] }
+  push: { branches: [main] }
 
 jobs:
   tests:
-    uses: vapor/ci/.github/workflows/run-unit-tests.yml@reusable-workflows
+    uses: vapor/ci/.github/workflows/run-unit-tests.yml@main
     with:
       with_coverage: true
       with_tsan: true
       with_public_api_check: true
-      coverage_ignores: '/Tests/'
+      coverage_ignores: "/Tests/"
