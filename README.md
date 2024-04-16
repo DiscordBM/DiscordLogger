@@ -8,7 +8,7 @@
         <img src="https://codecov.io/gh/DiscordBM/DiscordLogger/branch/main/graph/badge.svg?token=P4DYX2FWYT" alt="Codecov">
     </a>
     <a href="https://swift.org">
-        <img src="https://img.shields.io/badge/swift-5.8%20/%205.7-brightgreen.svg" alt="Latest/Minimum Swift Version">
+        <img src="https://img.shields.io/badge/swift-5.9%20/%205.10-brightgreen.svg" alt="Latest/Minimum Swift Version">
     </a>
 </p>
 
